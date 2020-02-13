@@ -1,0 +1,25 @@
+{
+  "name": "disgooddeal",
+  "version": "1.0.0",
+  "description": "Discord Deal Bot and API",
+  "main": "src/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "npm run watch & npm run start",
+    "start": "tsc && node dist/index.js",
+    "watch": "tsc -w"
+  },
+  "author": "UpDownLeftDie (Jared)",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^11.5.1",
+    "dotenv": "^8.2.0",
+    "lowdb": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/lowdb": "^1.0.9",
+    "@types/node": "^13.7.0",
+    "tslint": "^6.0.0",
+    "typescript": "^3.7.5"
+  }
+}
