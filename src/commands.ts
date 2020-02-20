@@ -1,15 +1,9 @@
-import { Message, RichEmbed, User, DMChannel, Snowflake } from "discord.js";
-import { NewDeal, Deal, Methods, DBSchema } from "./models";
-import low from "lowdb";
-import FileSync from "lowdb/adapters/FileSync";
+import { Message, RichEmbed, User, DMChannel } from "discord.js";
 import Discord from "discord.js";
+import { NewDeal, Deal, Methods } from "./models";
+import db from "./loaders/lowdb";
 
 import { askQuestion, sendDM } from "./utils";
-
-const adapter = new FileSync("db.json");
-const db: low.LowdbSync<DBSchema> = low(adapter);
-
-db.defaults({ activeDeals: [], pastDeals: [], users: {} }).write();
 
 const optionalEmoji = "⏭";
 
@@ -152,13 +146,18 @@ export const handleCommand = async (
     if (newDealCommand.length === 1) {
       const [dealObj, richEmbed] = await goodDeal(msg);
       // TODO setup posting deals in specific channelId
-      const newDealMsg = await msg.channel.send(
+      const messageRes = await msg.channel.send(
         "*WOW look at dis good deal!*",
         richEmbed
       );
+      const newDealMsg: Message = messageRes?.[0] || messageRes;
       const deal: Deal = {
         ...dealObj,
-        messageId: (newDealMsg?.[0] || newDealMsg).id
+        id: {
+          guildId: newDealMsg.guild.id,
+          channelId: newDealMsg.channel.id,
+          messageId: newDealMsg.id
+        }
       };
       db.get("activeDeals")
         .push(deal)

@@ -1,11 +1,11 @@
-import { Client, Message } from "discord.js";
-
 import dotenv from "dotenv";
 dotenv.config();
 
+import { Client, Message } from "discord.js";
 import Discord from "discord.js";
 const client: Client = new Discord.Client();
 import { handleCommand } from "./commands";
+import "./jobs/monitorDeals";
 
 const config = {
   token: process.env.TOKEN,

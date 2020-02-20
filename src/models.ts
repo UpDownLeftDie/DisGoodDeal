@@ -14,12 +14,14 @@ export interface NewDeal {
 }
 
 export interface Deal extends NewDeal {
-  messageId: Snowflake;
+  id: {
+    guildId: Snowflake;
+    channelId: Snowflake;
+    messageId: Snowflake;
+  };
 }
 
-export interface Deals {
-  deals: Deal[];
-}
+export type Deals = Deal[];
 
 export interface User {
   id: Snowflake;
@@ -27,7 +29,7 @@ export interface User {
 }
 
 export type DBSchema = {
-  activeDeals: Deal[];
-  pastDeals: Deal[];
+  activeDeals: Deals;
+  pastDeals: Deals;
   users: User[];
 };
