@@ -1,31 +1,22 @@
-import { Message, RichEmbed, User, DMChannel, Collection } from "discord.js";
-import { Deal, Methods } from "./models";
+import { Message, RichEmbed, User, DMChannel, Snowflake } from "discord.js";
+import { NewDeal, Deal, Methods, DBSchema } from "./models";
 import low from "lowdb";
 import FileSync from "lowdb/adapters/FileSync";
 import Discord from "discord.js";
 
+import { askQuestion, sendDM } from "./utils";
+
 const adapter = new FileSync("db.json");
-const db: low.LowdbSync<any> = low(adapter);
+const db: low.LowdbSync<DBSchema> = low(adapter);
 
-db.defaults({ activeDeals: [], pastDeals: [] }).write();
+db.defaults({ activeDeals: [], pastDeals: [], users: {} }).write();
 
-const getUserResponse = async (
-  dm: DMChannel,
-  user: User
-): Promise<Collection<string, Message>> =>
-  await dm.awaitMessages((m: Message) => m.author.id === user.id, {
-    max: 1,
-    time: 120000,
-    errors: ["time"]
-  });
+const optionalEmoji = "⏭";
 
 const getDealTile = async (dm: DMChannel, user: User): Promise<string> => {
-  await dm.send(
-    "Heard you got something good for me! 🤑\nWhat is the deal? 😀 *(Enter a title)*"
-  );
+  const msgStr = "What is the deal? 😀 *(Enter a title)*";
   try {
-    const titleMsg = await getUserResponse(dm, user);
-    return titleMsg.first().content;
+    return await askQuestion(dm, user, msgStr);
   } catch (err) {
     console.error(`User did not respond in time when setting: title`, err);
   }
@@ -35,10 +26,9 @@ const getDealDescription = async (
   dm: DMChannel,
   user: User
 ): Promise<string> => {
-  await dm.send("So, like what IS it? 😲 *(Enter a descrption)*");
+  const msgStr = "So, like what IS it? 😲 *(Enter a descrption)*";
   try {
-    const descriptionMsg = await getUserResponse(dm, user);
-    return descriptionMsg.first().content;
+    return await askQuestion(dm, user, msgStr);
   } catch (err) {
     console.error(
       `User did not respond in time when setting: description`,
@@ -54,12 +44,10 @@ const getDealRedemptionInfo = async (
   redemptionInfo: string;
   method: Methods.instructions | Methods.link;
 }> => {
-  await dm.send(
-    "How do you get said deal? 🤔 *(Paste a link or type instructions)*"
-  );
+  const msgStr =
+    "How do you get said deal? 🤔 *(Paste a link or type instructions)*";
   try {
-    const redemptionMsg = await getUserResponse(dm, user);
-    let redemptionInfo: string = redemptionMsg.first().content;
+    let redemptionInfo = await askQuestion(dm, user, msgStr);
     try {
       redemptionInfo = new URL(redemptionInfo).href;
       return { redemptionInfo, method: Methods.link };
@@ -84,34 +72,47 @@ const getExpireDate = async (dm: DMChannel, user: User): Promise<Date> => {
   const defaultExpireDate = new Date(
     new Date().getTime() + 1000 * 60 * 60 * 24 * 7
   ); // second * min * hour * day * week
-  await dm.send("When does it expire? 💣 *(Enter a date, 'idk' = 1 week)*");
+  const msgStr = "When does it expire? ⏳ (Default: 1 week)";
   let isValidDate = false;
   do {
     try {
-      const expireMsg = await getUserResponse(dm, user);
-      const expireStr = expireMsg.first().content;
-      if (expireStr === "idk") {
+      const expireStr: string | null = await askQuestion(
+        dm,
+        user,
+        msgStr,
+        true
+      );
+      // TODO refactor to handle optional reaction
+      if (!expireStr) {
         isValidDate = true;
         return defaultExpireDate;
       } else {
         const expireDate = new Date(expireStr);
-        isValidDate = true;
-        return expireDate;
+        if (expireDate instanceof Date && !isNaN(expireDate.getTime())) {
+          isValidDate = true;
+          return expireDate;
+        } else {
+          const invalidMsg = "Invalid date. Try again 🤷‍♂️";
+          await sendDM(dm, invalidMsg);
+        }
       }
     } catch (err) {
       console.error(
         `User did not respond in time when setting: expireMsg`,
         err
       );
+      isValidDate = true;
     }
   } while (!isValidDate);
 };
 
-const goodDeal = async (msg: Message): Promise<RichEmbed> => {
+const goodDeal = async (msg: Message): Promise<[NewDeal, RichEmbed]> => {
   const user: User = msg.author;
   const dm: DMChannel = await user.createDM();
   // TODO: what if user has DM's disabled?
-  const deal: Deal = {
+  const introMsg = `Heard you got something good for me! 🤑\n*Required messages are **bold**\nUse ${optionalEmoji} reaction to skip optional questions*`;
+  await sendDM(dm, introMsg);
+  const deal: NewDeal = {
     title: await getDealTile(dm, user),
     description: await getDealDescription(dm, user),
     ...(await getDealRedemptionInfo(dm, user)),
@@ -138,7 +139,7 @@ const goodDeal = async (msg: Message): Promise<RichEmbed> => {
   } else if (deal.redemptionInfo) {
     dealEmbed.addField("Instructions", deal.redemptionInfo);
   }
-  return dealEmbed;
+  return [deal, dealEmbed];
 };
 
 export const handleCommand = async (
@@ -147,16 +148,22 @@ export const handleCommand = async (
 ): Promise<void> => {
   // TODO use Switch
   if (command.startsWith("gooddeal")) {
-    const deal = command.split("gooddeal ");
-    if (deal.length === 1) {
-      const richEmbed = await goodDeal(msg);
+    const newDealCommand = command.split("gooddeal ");
+    if (newDealCommand.length === 1) {
+      const [dealObj, richEmbed] = await goodDeal(msg);
       // TODO setup posting deals in specific channelId
       const newDealMsg = await msg.channel.send(
         "*WOW look at dis good deal!*",
         richEmbed
       );
-      // TODO store this in the DB for deleting after it expires
-      console.log(newDealMsg);
+      const deal: Deal = {
+        ...dealObj,
+        messageId: (newDealMsg?.[0] || newDealMsg).id
+      };
+      db.get("activeDeals")
+        .push(deal)
+        .write();
+      console.log(db.getState());
     } else {
       const helpText = "To use this command type: `wow gooddeal`";
       msg.channel.send(helpText);
