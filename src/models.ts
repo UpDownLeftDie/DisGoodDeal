@@ -1,4 +1,9 @@
 import { Snowflake } from "discord.js";
+
+export enum DiscordErrors {
+  UnknownMessage = 10008
+}
+
 export enum Methods {
   link = "link",
   instructions = "instructions"

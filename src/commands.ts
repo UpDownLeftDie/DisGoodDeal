@@ -1,4 +1,4 @@
-import { Message, RichEmbed, User, DMChannel } from "discord.js";
+import { Message, MessageEmbed, User, DMChannel } from "discord.js";
 import Discord from "discord.js";
 import { NewDeal, Deal, Methods } from "./models";
 import db from "./loaders/lowdb";
@@ -100,7 +100,7 @@ const getExpireDate = async (dm: DMChannel, user: User): Promise<Date> => {
   } while (!isValidDate);
 };
 
-const goodDeal = async (msg: Message): Promise<[NewDeal, RichEmbed]> => {
+const goodDeal = async (msg: Message): Promise<[NewDeal, MessageEmbed]> => {
   const user: User = msg.author;
   const dm: DMChannel = await user.createDM();
   // TODO: what if user has DM's disabled?
@@ -114,10 +114,10 @@ const goodDeal = async (msg: Message): Promise<[NewDeal, RichEmbed]> => {
     userId: user.id
   };
 
-  const dealEmbed = new Discord.RichEmbed()
+  const dealEmbed = new Discord.MessageEmbed()
     .setColor("#0099ff")
     .setTitle(deal.title)
-    .setAuthor(msg.author.username, msg.author.displayAvatarURL)
+    .setAuthor(msg.author.username, msg.author.displayAvatarURL())
     .setDescription(deal.description)
     // .setThumbnail("https://i.imgur.com/wSTFkRM.png")
     // .addField("Regular field title", "Some value here")
@@ -142,6 +142,7 @@ export const handleCommand = async (
 ): Promise<void> => {
   // TODO use Switch
   if (command.startsWith("gooddeal")) {
+    msg.delete();
     const newDealCommand = command.split("gooddeal ");
     if (newDealCommand.length === 1) {
       const [dealObj, richEmbed] = await goodDeal(msg);

@@ -1,11 +1,10 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { Client, Message } from "discord.js";
-import Discord from "discord.js";
-const client: Client = new Discord.Client();
+import { Message } from "discord.js";
+import client from "./loaders/discord";
 import { handleCommand } from "./commands";
-import "./jobs/monitorDeals";
+import monitorDeals from "./jobs/monitorDeals";
 
 const config = {
   token: process.env.TOKEN,
@@ -14,6 +13,7 @@ const config = {
 
 client.on("ready", () => {
   console.log(`Logged in as ${client.user.tag}!`);
+  monitorDeals.start();
 });
 
 client.on("message", (msg: Message) => {
